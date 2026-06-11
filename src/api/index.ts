@@ -68,17 +68,23 @@ export const productApi = {
   list: (params?: Record<string, any>) =>
     client.get<ApiResponse<PaginatedResponse<Product>>>('/products', { params }),
 
-  trending: (lat?: number, lng?: number) =>
-    client.get<ApiResponse<Product[]>>('/products/trending', { params: { ...(lat !== undefined && { lat, lng }) } }),
+  trending: (lat?: number, lng?: number, storeId?: string) =>
+    client.get<ApiResponse<Product[]>>('/products/trending', {
+      params: Object.assign({}, lat !== undefined && { lat, lng }, storeId && { storeId }),
+    }),
 
-  featured: (lat?: number, lng?: number) =>
-    client.get<ApiResponse<Product[]>>('/products/featured', { params: { ...(lat !== undefined && { lat, lng }) } }),
+  featured: (lat?: number, lng?: number, storeId?: string) =>
+    client.get<ApiResponse<Product[]>>('/products/featured', {
+      params: Object.assign({}, lat !== undefined && { lat, lng }, storeId && { storeId }),
+    }),
 
   search: (q: string) =>
     client.get<ApiResponse<Product[]>>('/products/search', { params: { q } }),
 
-  getBySlug: (slug: string, lat?: number, lng?: number) =>
-    client.get<ApiResponse<Product>>(`/products/${slug}`, { params: { ...(lat !== undefined && { lat, lng }) } }),
+  getBySlug: (slug: string, lat?: number, lng?: number, storeId?: string) =>
+    client.get<ApiResponse<Product>>(`/products/${slug}`, {
+      params: Object.assign({}, lat !== undefined && { lat, lng }, storeId && { storeId }),
+    }),
 
   checkStock: (productIds: string[]) =>
     client.post<ApiResponse<Record<string, { stock: number; isAvailable: boolean }>>>('/products/stock', { productIds }),
@@ -134,6 +140,14 @@ export const reviewApi = {
   delete: (id: string) => client.delete<ApiResponse<null>>(`/reviews/${id}`),
 };
 
+// ── Payments ──
+export const paymentApi = {
+  create: (orderId: string, method: string = 'COD') =>
+    client.post<ApiResponse<any>>('/payments/create', { orderId, method }),
+
+  verify: (paymentId: string, orderId: string, method: string = 'COD') =>
+    client.post<ApiResponse<any>>('/payments/verify', { paymentId, orderId, method }),
+};
 // ── Stores ──
 export const storeApi = {
   nearby: (lat: number, lng: number) =>

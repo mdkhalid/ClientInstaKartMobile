@@ -1,15 +1,23 @@
 import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, TextInput } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
-import { userApi, orderApi, cartApi } from '../../src/api';
+import { userApi, orderApi, cartApi, paymentApi } from '../../src/api';
+import { getImageUrl, trackEvent } from '../../src/api/client';
 import { useCartStore } from '../../src/store/cart';
 import type { Address } from '../../src/types';
 import { colors, spacing, borderRadius } from '../../src/theme';
+
+const PAYMENT_METHODS = [
+  { id: 'COD', label: 'Cash on Delivery', icon: '💵', desc: 'Pay when delivered' },
+  { id: 'UPI', label: 'UPI', icon: '📱', desc: 'Google Pay, PhonePe, Paytm' },
+  { id: 'RAZORPAY', label: 'Card / NetBanking', icon: '💳', desc: 'Credit, Debit & NetBanking' },
+];
 
 export default function CheckoutScreen() {
   const { cart, fetch } = useCartStore();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState('COD');
   const [couponCode, setCouponCode] = useState('');
   const [couponApplied, setCouponApplied] = useState(false);
   const [couponMsg, setCouponMsg] = useState('');
@@ -34,10 +42,8 @@ export default function CheckoutScreen() {
     if (!couponCode.trim()) return;
     try {
       const res = await cartApi.applyCoupon(couponCode.trim());
-      if (res.data.success) {
-        setCouponApplied(true);
-        setCouponMsg('Coupon applied!');
-      }
+      setCouponApplied(res.data.success);
+      setCouponMsg(res.data.success ? 'Coupon applied!' : 'Invalid coupon');
     } catch (err: any) {
       setCouponMsg(err.response?.data?.message || 'Invalid coupon');
       setCouponApplied(false);
@@ -45,22 +51,40 @@ export default function CheckoutScreen() {
   };
 
   const handlePlaceOrder = async () => {
-    if (!selectedAddress) {
-      Alert.alert('Select Address', 'Please select a delivery address');
-      return;
-    }
-    if (!cart || cart.items.length === 0) {
-      Alert.alert('Cart Empty', 'Add items to your cart first');
-      return;
-    }
+    if (!selectedAddress) { Alert.alert('Select Address', 'Please select a delivery address'); return; }
+    if (!cart || cart.items.length === 0) { Alert.alert('Cart Empty', 'Add items to your cart first'); return; }
+
     setPlacing(true);
+    trackEvent('checkout_start');
     try {
-      const payload: any = { addressId: selectedAddress, paymentMethod: 'COD' };
+      const payload: any = { addressId: selectedAddress, paymentMethod };
       if (couponApplied) payload.couponCode = couponCode.trim();
-      await orderApi.create(payload);
-      Alert.alert('Order Placed!', 'Your order has been placed successfully.', [
-        { text: 'View Orders', onPress: () => router.push('/(tabs)/orders') },
-      ]);
+
+      const res = await orderApi.create(payload);
+      const order = res.data.data;
+      trackEvent('checkout_complete');
+
+      if (paymentMethod === 'COD') {
+        Alert.alert('Order Placed!', `Order ${order.orderNumber} placed successfully. Pay on delivery.`, [
+          { text: 'View Orders', onPress: () => router.push('/(tabs)/orders') },
+        ]);
+      } else {
+        // For online payment, get payment intent
+        try {
+          const payRes = await paymentApi.create(order.id, paymentMethod);
+          const payData = payRes.data.data;
+          // Show payment info — in production this would open a WebView/checkout
+          Alert.alert(
+            'Payment Initiated',
+            `Order ${order.orderNumber} created. Complete payment of ₹${order.total} via ${paymentMethod}.\n\nPayment ID: ${payData.paymentId}`,
+            [{ text: 'View Orders', onPress: () => router.push('/(tabs)/orders') }]
+          );
+        } catch {
+          Alert.alert('Order Created', `Order ${order.orderNumber} created. Complete payment in Orders section.`, [
+            { text: 'View Orders', onPress: () => router.push('/(tabs)/orders') },
+          ]);
+        }
+      }
     } catch (err: any) {
       Alert.alert('Error', err.response?.data?.message || 'Failed to place order');
     }
@@ -82,6 +106,7 @@ export default function CheckoutScreen() {
       </View>
 
       <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+        {/* Address */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Delivery Address</Text>
           {addresses.length === 0 ? (
@@ -107,6 +132,24 @@ export default function CheckoutScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Payment */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Payment Method</Text>
+          {PAYMENT_METHODS.map(m => (
+            <TouchableOpacity key={m.id} style={[styles.paymentCard, paymentMethod === m.id && styles.paymentSelected]}
+              onPress={() => setPaymentMethod(m.id)}>
+              <Text style={{ fontSize: 22, marginRight: spacing.md }}>{m.icon}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.paymentLabel}>{m.label}</Text>
+                <Text style={styles.paymentDesc}>{m.desc}</Text>
+              </View>
+              <View style={[styles.radio, paymentMethod === m.id && styles.radioSelected]}>
+                {paymentMethod === m.id && <View style={styles.radioInner} />}
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         {/* Coupon */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Coupon Code</Text>
@@ -120,6 +163,7 @@ export default function CheckoutScreen() {
           {couponMsg ? <Text style={{ fontSize: 12, color: couponApplied ? colors.success : colors.error, marginTop: 4 }}>{couponMsg}</Text> : null}
         </View>
 
+        {/* Summary */}
         {cart && cart.items.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Order Summary ({cart.itemCount} items)</Text>
@@ -142,7 +186,7 @@ export default function CheckoutScreen() {
       <View style={styles.footer}>
         <TouchableOpacity style={[styles.placeBtn, (!selectedAddress || !cart || cart.items.length === 0) && { opacity: 0.5 }]}
           onPress={handlePlaceOrder} disabled={placing || !selectedAddress || !cart || cart.items.length === 0}>
-          {placing ? <ActivityIndicator color={colors.white} /> : <Text style={styles.placeText}>Place Order (COD)</Text>}
+          {placing ? <ActivityIndicator color={colors.white} /> : <Text style={styles.placeText}>Place Order • {paymentMethod === 'COD' ? 'COD' : 'Online'}</Text>}
         </TouchableOpacity>
       </View>
     </View>
@@ -164,6 +208,13 @@ const styles = StyleSheet.create({
   defaultBadge: { backgroundColor: colors.primaryBg, paddingHorizontal: spacing.sm, borderRadius: 4 },
   defaultText: { fontSize: 10, color: colors.primary, fontWeight: '600' },
   addressText: { fontSize: 12, color: colors.textSecondary },
+  paymentCard: { flexDirection: 'row', alignItems: 'center', padding: spacing.md, borderRadius: borderRadius.md, borderWidth: 1, borderColor: colors.border, marginBottom: spacing.sm },
+  paymentSelected: { borderColor: colors.primary, backgroundColor: colors.primaryBg },
+  paymentLabel: { fontSize: 15, fontWeight: '600', color: colors.text },
+  paymentDesc: { fontSize: 12, color: colors.textLight, marginTop: 2 },
+  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' },
+  radioSelected: { borderColor: colors.primary },
+  radioInner: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
   couponRow: { flexDirection: 'row', alignItems: 'center' },
   couponInput: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: borderRadius.md, paddingHorizontal: spacing.md, paddingVertical: 10, fontSize: 14, color: colors.text, marginRight: spacing.sm },
   applyBtn: { backgroundColor: colors.primary, paddingHorizontal: spacing.xl, paddingVertical: 12, borderRadius: borderRadius.md },

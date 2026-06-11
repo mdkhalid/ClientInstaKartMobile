@@ -1,5 +1,6 @@
 import * as Location from 'expo-location';
 import { create } from 'zustand';
+import { useStoreStore } from './store';
 
 interface LocationState {
   lat: number | null;
@@ -34,6 +35,9 @@ export const useLocationStore = create<LocationState>((set) => ({
         ? [reverse.street, reverse.district, reverse.city].filter(Boolean).join(', ')
         : 'Current Location';
       set({ lat: loc.coords.latitude, lng: loc.coords.longitude, address, loading: false });
+
+      // Auto-detect nearest serving store
+      useStoreStore.getState().detectStore(loc.coords.latitude, loc.coords.longitude);
     } catch (err: any) {
       set({ loading: false, error: err.message || 'Failed to get location' });
     }

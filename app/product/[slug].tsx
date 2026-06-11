@@ -2,9 +2,10 @@ import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { productApi, wishlistApi } from '../../src/api';
-import { getImageUrl } from '../../src/api/client';
+import { getImageUrl, trackView, trackEvent } from '../../src/api/client';
 import { useCartStore } from '../../src/store/cart';
 import { useLocationStore } from '../../src/store/location';
+import { useStoreStore } from '../../src/store/store';
 import type { Product } from '../../src/types';
 import { colors, spacing, borderRadius } from '../../src/theme';
 
@@ -16,15 +17,17 @@ export default function ProductDetailScreen() {
   const [inWishlist, setInWishlist] = useState(false);
   const addItem = useCartStore((s) => s.addItem);
   const { lat, lng } = useLocationStore();
+  const storeId = useStoreStore((s) => s.currentStore?.id);
 
   const loadProduct = useCallback(async () => {
     if (!slug) return;
     setLoading(true);
     try {
-      const res = await productApi.getBySlug(slug, lat ?? undefined, lng ?? undefined);
+      const res = await productApi.getBySlug(slug, lat ?? undefined, lng ?? undefined, storeId ?? undefined);
       const p = res.data.data;
       if (p) {
         setProduct(p);
+        trackView(p.id);
         try {
           const wishRes = await wishlistApi.check([p.id]);
           setInWishlist(wishRes.data.data?.[p.id] ?? false);
@@ -41,6 +44,7 @@ export default function ProductDetailScreen() {
     setAddingToCart(true);
     try {
       await addItem(product.id, 1, lat ?? undefined, lng ?? undefined);
+      trackEvent('add_to_cart', product.id);
       router.push('/(tabs)/cart');
     } catch {} finally { setAddingToCart(false); }
   };
@@ -108,6 +112,10 @@ export default function ProductDetailScreen() {
         >
           {addingToCart ? <ActivityIndicator color={colors.white} /> : <Text style={styles.btnText}>Add to Cart • ₹{product.salePrice || product.price}</Text>}
         </TouchableOpacity>
+
+        <TouchableOpacity style={styles.reviewBtn} onPress={() => router.push(`/review?productId=${product.id}&productName=${encodeURIComponent(product.name)}`)}>
+          <Text style={styles.reviewBtnText}>✏️ Write a Review</Text>
+        </TouchableOpacity>
       </View>
       <View style={{ height: 40 }} />
     </ScrollView>
@@ -144,4 +152,6 @@ const styles = StyleSheet.create({
   btn: { backgroundColor: colors.primary, borderRadius: borderRadius.md, paddingVertical: 16, alignItems: 'center', marginTop: spacing.xxl },
   btnDisabled: { opacity: 0.5 },
   btnText: { color: colors.white, fontSize: 16, fontWeight: '700' },
+  reviewBtn: { paddingVertical: 12, alignItems: 'center', marginTop: spacing.md, borderRadius: borderRadius.md, borderWidth: 1, borderColor: colors.border },
+  reviewBtnText: { color: colors.textSecondary, fontSize: 14, fontWeight: '500' },
 });

@@ -5,6 +5,7 @@ import { productApi, categoryApi, wishlistApi } from '../../src/api';
 import { getImageUrl } from '../../src/api/client';
 import { useCartStore } from '../../src/store/cart';
 import { useLocationStore } from '../../src/store/location';
+import { useStoreStore } from '../../src/store/store';
 import type { Product, Category } from '../../src/types';
 import { colors, spacing, borderRadius } from '../../src/theme';
 
@@ -61,12 +62,15 @@ export default function HomeScreen() {
   const fetchCart = useCartStore((s) => s.fetch);
   const cartCount = useCartStore((s) => s.cart?.itemCount ?? 0);
   const { lat, lng, address, loading: locLoading, requestLocation } = useLocationStore();
+  const { currentStore, availableStores, setStore, notServiceable, loading: storeLoading } = useStoreStore();
+  const [showStores, setShowStores] = useState(false);
 
   const fetchData = useCallback(async (locLat?: number, locLng?: number) => {
+    const storeId = useStoreStore.getState().currentStore?.id;
     try {
       const [trendingRes, featuredRes, catRes] = await Promise.all([
-        productApi.trending(locLat, locLng),
-        productApi.featured(locLat, locLng),
+        productApi.trending(locLat, locLng, storeId),
+        productApi.featured(locLat, locLng, storeId),
         categoryApi.popular(),
       ]);
       setTrending(trendingRes.data.data ?? []);
@@ -111,6 +115,17 @@ export default function HomeScreen() {
             <TouchableOpacity onPress={requestLocation}>
               <Text style={styles.location} numberOfLines={1}>📍 {address || (locLoading ? 'Getting location...' : 'Set Location')}</Text>
             </TouchableOpacity>
+            {/* Store Selector */}
+            {currentStore && (
+              <TouchableOpacity style={styles.storeRow} onPress={() => setShowStores(!showStores)}>
+                <Text style={styles.storeName}>🏪 {currentStore.name}</Text>
+                <Text style={{ fontSize: 10, color: colors.textLight }}>▼</Text>
+              </TouchableOpacity>
+            )}
+            {notServiceable && !storeLoading && (
+              <Text style={styles.notServiceable}>⚠️ No store serves your area</Text>
+            )}
+            {storeLoading && <Text style={{ fontSize: 11, color: colors.textLight }}>Finding nearby stores...</Text>}
           </View>
           <TouchableOpacity style={styles.cartIconWrap} onPress={() => router.push('/(tabs)/cart')}>
             <Text style={{ fontSize: 22 }}>🛒</Text>
@@ -127,6 +142,23 @@ export default function HomeScreen() {
           <TextInput style={styles.searchInput} placeholder="Search groceries..." placeholderTextColor={colors.textLight}
             onFocus={() => router.push('/(tabs)/search')} />
         </View>
+
+        {/* Store Switcher Dropdown */}
+        {showStores && availableStores.length > 1 && (
+          <>
+            <TouchableOpacity style={styles.overlay} onPress={() => setShowStores(false)} />
+            <View style={styles.dropdown}>
+              <Text style={styles.dropdownTitle}>Switch Store</Text>
+              {availableStores.map(s => (
+                <TouchableOpacity key={s.id} style={[styles.dropdownItem, currentStore?.id === s.id && styles.dropdownItemActive]}
+                  onPress={() => { setStore(s); setShowStores(false); }}>
+                  <Text style={[styles.dropdownName, currentStore?.id === s.id && { color: colors.primary, fontWeight: '700' }]}>{s.name}</Text>
+                  <Text style={styles.dropdownCity}>{s.city} • ₹{s.deliveryFee} delivery</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        )}
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}
@@ -252,4 +284,15 @@ const styles = StyleSheet.create({
   addSmallBtn: { backgroundColor: colors.primaryBg, borderRadius: 6, paddingVertical: 4, alignItems: 'center', marginTop: spacing.sm, borderWidth: 1, borderColor: colors.primary },
   addSmallText: { fontSize: 12, fontWeight: '600', color: colors.primary },
   featuredGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: spacing.xl, gap: spacing.md },
+  // Store
+  storeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2, gap: 4 },
+  storeName: { fontSize: 12, fontWeight: '500', color: colors.primary },
+  notServiceable: { fontSize: 11, color: colors.error, marginTop: 2 },
+  overlay: { position: 'absolute', top: 0, left: -spacing.xl, right: -spacing.xl, bottom: -1000, backgroundColor: 'rgba(0,0,0,0.3)', zIndex: 10 },
+  dropdown: { position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: colors.white, borderRadius: borderRadius.md, borderWidth: 1, borderColor: colors.border, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 8, zIndex: 20, padding: spacing.md, marginTop: 4 },
+  dropdownTitle: { fontSize: 13, fontWeight: '700', color: colors.textLight, marginBottom: spacing.sm, textTransform: 'uppercase', letterSpacing: 1 },
+  dropdownItem: { paddingVertical: spacing.md, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
+  dropdownItemActive: { backgroundColor: colors.primaryBg, marginHorizontal: -spacing.md, paddingHorizontal: spacing.md, borderRadius: borderRadius.sm },
+  dropdownName: { fontSize: 14, fontWeight: '600', color: colors.text },
+  dropdownCity: { fontSize: 11, color: colors.textLight, marginTop: 2 },
 });

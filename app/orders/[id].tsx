@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { orderApi } from '../../src/api';
+import { useCartStore } from '../../src/store/cart';
 import type { Order } from '../../src/types';
 import { colors, spacing, borderRadius } from '../../src/theme';
 
@@ -18,6 +19,7 @@ export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const addItem = useCartStore((s) => s.addItem);
 
   useFocusEffect(useCallback(() => {
     if (!id) return;
@@ -106,6 +108,20 @@ export default function OrderDetailScreen() {
           <Text style={styles.cancelText}>Cancel Order</Text>
         </TouchableOpacity>
       )}
+
+      <TouchableOpacity style={styles.reorderBtn} onPress={async () => {
+        const preview = await orderApi.reorderPreview(order.id).catch(() => null);
+        if (!preview?.data?.data) { Alert.alert('Cannot Reorder', 'Some items are unavailable'); return; }
+        const available = preview.data.data.items?.filter((i: any) => i.isAvailable) || [];
+        if (available.length === 0) { Alert.alert('Cannot Reorder', 'All items are currently unavailable'); return; }
+        for (const item of available) await addItem(item.productId, item.maxQuantity || item.originalQuantity).catch(() => {});
+        Alert.alert('Items Added', `${available.length} item(s) added to your cart`, [
+          { text: 'View Cart', onPress: () => router.push('/(tabs)/cart') },
+          { text: 'Continue', style: 'cancel' },
+        ]);
+      }}>
+        <Text style={styles.reorderText}>🔄 Reorder</Text>
+      </TouchableOpacity>
       <View style={{ height: 40 }} />
     </ScrollView>
   );
@@ -142,5 +158,8 @@ const styles = StyleSheet.create({
   addrText: { fontSize: 13, color: colors.textSecondary, lineHeight: 20 },
   paymentText: { fontSize: 12, color: colors.textSecondary, textAlign: 'center', marginTop: spacing.lg },
   cancelBtn: { marginHorizontal: spacing.xl, marginTop: spacing.lg, paddingVertical: 14, alignItems: 'center', borderRadius: borderRadius.md, borderWidth: 1, borderColor: colors.error },
+  cancelText: { color: colors.error, fontSize: 14, fontWeight: '600' },
+  reorderBtn: { marginHorizontal: spacing.xl, marginTop: spacing.md, paddingVertical: 14, alignItems: 'center', borderRadius: borderRadius.md, backgroundColor: colors.primaryBg, borderWidth: 1, borderColor: colors.primary },
+  reorderText: { color: colors.primary, fontSize: 14, fontWeight: '600' },
   cancelText: { color: colors.error, fontSize: 14, fontWeight: '600' },
 });

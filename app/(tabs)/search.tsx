@@ -2,8 +2,9 @@ import { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TextInput, FlatList, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { productApi } from '../../src/api';
-import { getImageUrl } from '../../src/api/client';
+import { getImageUrl, trackSearch } from '../../src/api/client';
 import { useLocationStore } from '../../src/store/location';
+import { useStoreStore } from '../../src/store/store';
 import type { Product } from '../../src/types';
 import { colors, spacing, borderRadius } from '../../src/theme';
 
@@ -15,6 +16,7 @@ export default function SearchScreen() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const { lat, lng } = useLocationStore();
+  const storeId = useStoreStore((s) => s.currentStore?.id);
 
   const fetchProducts = useCallback(async (p: number = 1, search?: string) => {
     setLoading(true);
@@ -23,6 +25,7 @@ export default function SearchScreen() {
       if (search || query) params.search = search || query;
       if (category) params.category = category;
       if (lat !== null && lng !== null) { params.lat = lat; params.lng = lng; }
+      if (storeId) { params.storeId = storeId; }
       if (p === 1) {
         params.featured = true;
       }
@@ -38,7 +41,7 @@ export default function SearchScreen() {
       setPage(p);
     } catch { /* silent */ }
     setLoading(false);
-  }, [query, category, lat, lng]);
+  }, [query, category, lat, lng, storeId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -51,6 +54,7 @@ export default function SearchScreen() {
   );
 
   const handleSearch = () => {
+    trackSearch(query);
     fetchProducts(1, query);
   };
 

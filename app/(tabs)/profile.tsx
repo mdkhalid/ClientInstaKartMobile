@@ -64,10 +64,10 @@ export default function ProfileScreen() {
       {/* Menu */}
       <View style={styles.menuSection}>
         <Text style={styles.menuSectionTitle}>Account</Text>
-        <MenuItem label="Edit Profile" icon="✏️" onPress={() => router.push('/address')} />
         <MenuItem label="My Addresses" icon="📍" onPress={() => router.push('/address')} />
         <MenuItem label="Order History" icon="📋" onPress={() => router.push('/(tabs)/orders')} />
-        <MenuItem label="Wishlist" icon="❤️" onPress={() => router.push('/(tabs)/search')} />
+        <MenuItem label="Wishlist" icon="❤️" onPress={() => router.push('/wishlist')} />
+        <MenuItem label="Change Password" icon="🔑" onPress={() => router.push('/change-password')} />
       </View>
 
       <View style={styles.menuSection}>
