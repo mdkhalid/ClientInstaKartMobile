@@ -4,6 +4,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { userApi, orderApi, cartApi, paymentApi } from '../../src/api';
 import { getImageUrl, trackEvent } from '../../src/api/client';
 import { useCartStore } from '../../src/store/cart';
+import { useStoreStore } from '../../src/store/store';
 import type { Address } from '../../src/types';
 import { colors, spacing, borderRadius } from '../../src/theme';
 
@@ -57,7 +58,8 @@ export default function CheckoutScreen() {
     setPlacing(true);
     trackEvent('checkout_start');
     try {
-      const payload: any = { addressId: selectedAddress, paymentMethod };
+      const storeId = useStoreStore.getState().currentStore?.id;
+      const payload: any = { addressId: selectedAddress, paymentMethod, storeId };
       if (couponApplied) payload.couponCode = couponCode.trim();
 
       const res = await orderApi.create(payload);

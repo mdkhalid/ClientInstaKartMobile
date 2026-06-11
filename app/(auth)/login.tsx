@@ -76,6 +76,10 @@ export default function LoginScreen() {
           )}
         </TouchableOpacity>
 
+        <TouchableOpacity style={styles.otpBtn} onPress={() => router.push('/(auth)/otp')}>
+          <Text style={styles.otpBtnText}>🔐 Login with OTP</Text>
+        </TouchableOpacity>
+
         <View style={styles.footer}>
           <Text style={styles.footerText}>Don't have an account? </Text>
           <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
@@ -137,6 +141,8 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   buttonText: { color: colors.white, fontSize: 16, fontWeight: '700' },
+  otpBtn: { alignItems: 'center', marginTop: spacing.lg, paddingVertical: spacing.md, borderRadius: borderRadius.md, borderWidth: 1, borderColor: colors.primary },
+  otpBtnText: { color: colors.primary, fontSize: 14, fontWeight: '600' },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: spacing.xxl },
   footerText: { color: colors.textSecondary, fontSize: 14 },
   link: { color: colors.primary, fontSize: 14, fontWeight: '600' },

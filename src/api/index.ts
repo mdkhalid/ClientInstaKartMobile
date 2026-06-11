@@ -29,6 +29,12 @@ export const authApi = {
 
   forgotPassword: (data: { email: string }) =>
     client.post<ApiResponse<null>>('/auth/forgot-password', data),
+
+  sendOtp: (phone: string) =>
+    client.post<ApiResponse<{ otp?: string }>>('/auth/send-otp', { phone }),
+
+  verifyOtp: (phone: string, code: string) =>
+    client.post<ApiResponse<AuthResponse>>('/auth/verify-otp', { phone, code }),
 };
 
 // ── User / Profile ──
@@ -92,10 +98,11 @@ export const productApi = {
 
 // ── Cart ──
 export const cartApi = {
-  get: () => client.get<ApiResponse<Cart>>('/cart'),
+  get: (storeId?: string) =>
+    client.get<ApiResponse<Cart>>('/cart', { params: storeId ? { storeId } : {} }),
 
-  addItem: (productId: string, quantity: number = 1, lat?: number, lng?: number) =>
-    client.post<ApiResponse<Cart>>('/cart/items', { productId, quantity, ...(lat !== undefined && { lat, lng }) }),
+  addItem: (productId: string, quantity: number = 1, lat?: number, lng?: number, storeId?: string) =>
+    client.post<ApiResponse<Cart>>('/cart/items', { productId, quantity, ...(lat !== undefined && { lat, lng }), ...(storeId && { storeId }) }),
 
   updateItem: (productId: string, quantity: number) =>
     client.put<ApiResponse<Cart>>(`/cart/items/${productId}`, { quantity }),

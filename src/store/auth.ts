@@ -12,6 +12,7 @@ interface AuthState {
   isLoading: boolean;
   isHydrated: boolean;
   login: (data: LoginRequest) => Promise<void>;
+  loginWithOtp: (phone: string, code: string) => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
   hydrate: () => Promise<void>;
@@ -54,6 +55,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (err: any) {
       set({ isLoading: false });
       throw new Error(err.response?.data?.message || 'Login failed');
+    }
+  },
+
+  loginWithOtp: async (phone: string, code: string) => {
+    set({ isLoading: true });
+    try {
+      const res = await authApi.verifyOtp(phone, code);
+      const { user, accessToken } = res.data.data!;
+      await Promise.all([
+        SecureStore.setItemAsync(TOKEN_KEY, accessToken),
+        SecureStore.setItemAsync(USER_KEY, JSON.stringify(user)),
+      ]);
+      set({ user, token: accessToken, isLoading: false });
+    } catch (err: any) {
+      set({ isLoading: false });
+      throw new Error(err.response?.data?.message || 'OTP verification failed');
     }
   },
 
