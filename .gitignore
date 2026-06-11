@@ -1,0 +1,23 @@
+node_modules/
+.expo/
+dist/
+*.tsbuildinfo
+.next/
+.env
+.env.local
+.env.production
+*.log
+.DS_Store
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+.cache/
+.android/
+.ios/
+
+# CommandCode AI assistant metadata
+.commandcode/
