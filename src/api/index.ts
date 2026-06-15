@@ -127,7 +127,7 @@ export const orderApi = {
   getById: (id: string) => client.get<ApiResponse<Order>>(`/orders/${id}`),
 
   cancel: (id: string, reason?: string) =>
-    client.put<ApiResponse<Order>>(`/orders/${id}/cancel`, { reason }),
+    client.post<ApiResponse<Order>>(`/orders/${id}/cancel`, { reason }),
 
   reorderPreview: (id: string) =>
     client.get<ApiResponse<any>>(`/orders/${id}/reorder`),
@@ -136,7 +136,7 @@ export const orderApi = {
 // ── Reviews ──
 export const reviewApi = {
   list: (slug: string, params?: Record<string, any>) =>
-    client.get<ApiResponse<PaginatedResponse<Review>>>(`/products/${slug}/reviews`, { params }),
+    client.get<ApiResponse<PaginatedResponse<Review>>>(`/reviews/product/${slug}`, { params }),
 
   create: (data: { productId: string; rating: number; title?: string; comment?: string }) =>
     client.post<ApiResponse<Review>>('/reviews', data),

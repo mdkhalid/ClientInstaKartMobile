@@ -14,7 +14,9 @@ export default function ChangePasswordScreen() {
 
   const handleChange = async () => {
     if (!current || !newPwd) { Alert.alert('Error', 'Fill all fields'); return; }
-    if (newPwd.length < 6) { Alert.alert('Error', 'Password must be at least 6 characters'); return; }
+    if (newPwd.length < 8) { Alert.alert('Error', 'Password must be at least 8 characters'); return; }
+    if (!/[A-Z]/.test(newPwd)) { Alert.alert('Error', 'Password must contain at least one uppercase letter'); return; }
+    if (!/[0-9]/.test(newPwd)) { Alert.alert('Error', 'Password must contain at least one number'); return; }
     if (newPwd !== confirm) { Alert.alert('Error', 'Passwords do not match'); return; }
     setLoading(true);
     try {
